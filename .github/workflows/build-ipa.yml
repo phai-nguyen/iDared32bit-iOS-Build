@@ -1,0 +1,90 @@
+name: Build iDared 32bit IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Upstream branch, tag, or commit to build
+        required: false
+        default: idared32bit
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout iDared 32bit source
+        uses: actions/checkout@v4
+        with:
+          repository: iDared32bit-emu/iDared32bit
+          ref: ${{ github.event.inputs.source_ref || 'idared32bit' }}
+          path: upstream
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Install Rust for iOS
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Install CMake if needed
+        run: |
+          if ! command -v cmake >/dev/null 2>&1; then
+            brew install cmake
+          fi
+          cmake --version
+
+      - name: Show Apple build tools
+        run: |
+          xcodebuild -version
+          xcode-select -p
+          rustc --version
+          cargo --version
+
+      - name: Build unsigned iPhone app
+        working-directory: upstream
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \\
+            -project iphone/touchHLE.xcodeproj \\
+            -scheme "iDared 32bit" \\
+            -configuration Release \\
+            -sdk iphoneos \\
+            -destination "generic/platform=iOS" \\
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \\
+            CODE_SIGNING_ALLOWED=NO \\
+            build 2>&1 | tee "$RUNNER_TEMP/idared-build.log"
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/iDared 32bit.app"
+          test -d "$APP"
+          test -f "$APP/Info.plist"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
+          cd "$RUNNER_TEMP/ipa"
+          /usr/bin/zip -qry "$RUNNER_TEMP/iDared32bit-unsigned.ipa" Payload
+          test -s "$RUNNER_TEMP/iDared32bit-unsigned.ipa"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP/Info.plist"
+          file "$APP/iDared 32bit"
+          ls -lh "$RUNNER_TEMP/iDared32bit-unsigned.ipa"
+
+      - name: Upload IPA and build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iDared32bit-IPA-${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/iDared32bit-unsigned.ipa
+            ${{ runner.temp }}/idared-build.log
+          if-no-files-found: warn
+          retention-days: 7
