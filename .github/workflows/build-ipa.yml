@@ -51,14 +51,14 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          xcodebuild \\
-            -project iphone/touchHLE.xcodeproj \\
-            -scheme "iDared 32bit" \\
-            -configuration Release \\
-            -sdk iphoneos \\
-            -destination "generic/platform=iOS" \\
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \\
-            CODE_SIGNING_ALLOWED=NO \\
+          xcodebuild \
+            -project iphone/touchHLE.xcodeproj \
+            -scheme "iDared 32bit" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee "$RUNNER_TEMP/idared-build.log"
 
       - name: Package unsigned IPA
