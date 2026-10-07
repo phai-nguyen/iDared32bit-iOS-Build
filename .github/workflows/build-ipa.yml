@@ -32,12 +32,15 @@ jobs:
         with:
           targets: aarch64-apple-ios
 
-      - name: Install CMake if needed
+      - name: Install CMake 3.31.6
         run: |
-          if ! command -v cmake >/dev/null 2>&1; then
-            brew install cmake
-          fi
-          cmake --version
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/cmake-3.31.6-macos-universal.tar.gz" \
+            https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-macos-universal.tar.gz
+          tar -xzf "$RUNNER_TEMP/cmake-3.31.6-macos-universal.tar.gz" -C "$RUNNER_TEMP"
+          mv "$RUNNER_TEMP/cmake-3.31.6-macos-universal/CMake.app/Contents" "$RUNNER_TEMP/cmake"
+          echo "$RUNNER_TEMP/cmake/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/cmake/bin/cmake" --version
 
       - name: Show Apple build tools
         run: |
